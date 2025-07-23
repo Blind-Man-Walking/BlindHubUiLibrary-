@@ -11,7 +11,7 @@ local BlindHubsUiLibrary = {}
 BlindHubsUiLibrary.__index = BlindHubsUiLibrary
 
 -- ====================================================================================
---[[                             SERVICE & THEME DEFINITIONS                            ]]
+--[[                  SERVICE & THEME DEFINITIONS                 ]]
 -- ====================================================================================
 
 -- Get services
@@ -41,7 +41,7 @@ local ROTATION_SPEED = 90
 local TOGGLE_KEY = Enum.KeyCode.RightShift
 
 -- ====================================================================================
---[[                              CORE UTILITY FUNCTIONS                              ]]
+--[[                  CORE UTILITY FUNCTIONS                  ]]
 -- ====================================================================================
 
 local function create(instanceType, properties)
@@ -88,7 +88,7 @@ end
 
 
 -- ====================================================================================
---[[                           UI ELEMENT CREATION FUNCTIONS                            ]]
+--[[                UI ELEMENT CREATION FUNCTIONS                 ]]
 -- ====================================================================================
 
 --- Creates a new descriptive label.
@@ -377,6 +377,7 @@ function BlindHubsUiLibrary:AddButton(options)
     if type(options) == "string" then
         text = options
     else
+        options = options or {}
         text = options.Text or "Button"
         icon = options.Icon
         arrow = options.Arrow 
@@ -428,7 +429,7 @@ function BlindHubsUiLibrary:AddButton(options)
 end
 
 -- ====================================================================================
---[[                             TAB & THEME MANAGEMENT                               ]]
+--[[                  TAB & THEME MANAGEMENT                  ]]
 -- ====================================================================================
 
 function BlindHubsUiLibrary:AddTab(tabName)
@@ -589,7 +590,7 @@ function BlindHubsUiLibrary:ResetSettings()
 end
 
 -- ====================================================================================
---[[                         BUILT-IN TAB CREATION FUNCTIONS                          ]]
+--[[                BUILT-IN TAB CREATION FUNCTIONS               ]]
 -- ====================================================================================
 
 --- Creates the default "Main" tab with a welcome message.
@@ -741,7 +742,7 @@ end
 
 
 -- ====================================================================================
---[[                                 WINDOW CREATION                                  ]]
+--[[                  WINDOW CREATION                   ]]
 -- ====================================================================================
 
 function BlindHubsUiLibrary.CreateWindow(options)
@@ -1015,7 +1016,7 @@ function BlindHubsUiLibrary.CreateDefaultWindow()
 end
 
 -- ====================================================================================
---[[                                   KEY SYSTEM                                   ]]
+--[[                  KEY SYSTEM                  ]]
 -- ====================================================================================
 
 --- Creates the Key System UI and handles validation.
@@ -1070,6 +1071,42 @@ function BlindHubsUiLibrary.CreateKeySystem(onSuccess)
         Parent = mainFrame
     })
 
+    -- [ADDED] Close button for key system
+    local closeButton = create("TextButton", {
+        Name = "CloseButton",
+        Size = UDim2.fromOffset(20, 20),
+        Position = UDim2.new(1, -15, 0, 25),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Text = "",
+        Parent = mainFrame,
+        ZIndex = 2
+    })
+    local line1 = create("Frame", {
+        Name = "Line1",
+        Size = UDim2.new(0.7, 0, 0.1, 0),
+        Position = UDim2.fromScale(0.5, 0.5),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Rotation = 45,
+        BackgroundColor3 = Color3.fromRGB(225, 225, 225),
+        Parent = closeButton
+    })
+    create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = line1 })
+    local line2 = create("Frame", {
+        Name = "Line2",
+        Size = UDim2.new(0.7, 0, 0.1, 0),
+        Position = UDim2.fromScale(0.5, 0.5),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Rotation = -45,
+        BackgroundColor3 = Color3.fromRGB(225, 225, 225),
+        Parent = closeButton
+    })
+    create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = line2 })
+
+    closeButton.MouseButton1Click:Connect(function()
+        keySystemGui:Destroy()
+    end)
+    
     local keyTextBox = create("TextBox", {
         Name = "KeyInput",
         Size = UDim2.new(1, -20, 0, 35),
@@ -1131,8 +1168,8 @@ function BlindHubsUiLibrary.CreateKeySystem(onSuccess)
     local keyOptions = create("Frame", {
         Name = "KeyOptions",
         Size = UDim2.new(1, 0, 0, 60),
-        Position = UDim2.new(0, 0, 0, -5),      
-        AnchorPoint = Vector2.new(0, 1),        
+        Position = UDim2.new(0, 0, 0, -5),         
+        AnchorPoint = Vector2.new(0, 1),           
         BackgroundColor3 = Color3.fromRGB(45, 45, 45),
         Visible = false,
         ZIndex = 3, 
@@ -1274,7 +1311,7 @@ end
 
 
 -- ====================================================================================
---[[                                 INITIALIZATION                                 ]]
+--[[                  INITIALIZATION                  ]]
 -- ====================================================================================
 
 --- Initializes the entire UI, starting with the key system.
