@@ -10,8 +10,12 @@
 local BlindHubsUiLibrary = {}
 BlindHubsUiLibrary.__index = BlindHubsUiLibrary
 
+-- Global Options table to store UI element states (toggles, sliders, dropdowns)
+-- This mimics Fluent's Options table for easier integration with your main script.
+BlindHubsUiLibrary.Options = {}
+
 -- ====================================================================================
---[[                  SERVICE & THEME DEFINITIONS                 ]]
+--[[                             SERVICE & THEME DEFINITIONS                            ]]
 -- ====================================================================================
 
 -- Get services
@@ -41,7 +45,7 @@ local ROTATION_SPEED = 90
 local TOGGLE_KEY = Enum.KeyCode.RightShift
 
 -- ====================================================================================
---[[                  CORE UTILITY FUNCTIONS                  ]]
+--[[                             CORE UTILITY FUNCTIONS                             ]]
 -- ====================================================================================
 
 local function create(instanceType, properties)
@@ -52,43 +56,57 @@ local function create(instanceType, properties)
     return element
 end
 
--- Notification System
+-- Notification System (internal helper)
 local function showNotification(parentGui, message, messageColor)
-	local notificationFrame = create("Frame", {
-		Size = UDim2.fromOffset(300, 50),
-		Position = UDim2.new(0.5, 0, -0.1, 0),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Color3.fromRGB(35, 35, 35),
-		BackgroundTransparency = 0.2,
-		Parent = parentGui
-	})
-	create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = notificationFrame })
-	create("UIStroke", { Thickness = 2, Color = BORDER_COLOR, Parent = notificationFrame })
+    local notificationFrame = create("Frame", {
+        Size = UDim2.fromOffset(300, 50),
+        Position = UDim2.new(0.5, 0, -0.1, 0),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundColor3 = Color3.fromRGB(35, 35, 35),
+        BackgroundTransparency = 0.2,
+        Parent = parentGui
+    })
+    create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = notificationFrame })
+    create("UIStroke", { Thickness = 2, Color = BORDER_COLOR, Parent = notificationFrame })
 
-	local notificationLabel = create("TextLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Font = Enum.Font.SourceSansBold,
-		Text = message,
-		TextColor3 = messageColor,
-		TextSize = 16,
-		Parent = notificationFrame
-	})
-	
-	local tweenInfoShow = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	local tweenInfoHide = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-	
-	TweenService:Create(notificationFrame, tweenInfoShow, {Position = UDim2.new(0.5, 0, 0.05, 0)}):Play()
-	task.wait(2)
-	local hideTween = TweenService:Create(notificationFrame, tweenInfoHide, {Position = UDim2.new(0.5, 0, -0.1, 0)})
+    local notificationLabel = create("TextLabel", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.SourceSansBold,
+        Text = message,
+        TextColor3 = messageColor,
+        TextSize = 16,
+        Parent = notificationFrame
+    })
+    
+    local tweenInfoShow = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local tweenInfoHide = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+    
+    TweenService:Create(notificationFrame, tweenInfoShow, {Position = UDim2.new(0.5, 0, 0.05, 0)}):Play()
+    task.wait(2)
+    local hideTween = TweenService:Create(notificationFrame, tweenInfoHide, {Position = UDim2.new(0.5, 0, -0.1, 0)})
     hideTween:Play()
     hideTween.Completed:Wait()
-	notificationFrame:Destroy()
+    notificationFrame:Destroy()
+end
+
+-- Public Notify function for external use (mimics Fluent:Notify)
+function BlindHubsUiLibrary:Notify(config)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not PlayerGui then return end
+
+    local messageColor = Color3.fromRGB(255, 255, 255) -- Default white
+    if config.Type == "error" then messageColor = Color3.fromRGB(255, 80, 80)
+    elseif config.Type == "success" then messageColor = Color3.fromRGB(80, 255, 80) end
+
+    showNotification(PlayerGui, config.Content, messageColor)
 end
 
 
 -- ====================================================================================
---[[                UI ELEMENT CREATION FUNCTIONS                 ]]
+--[[                             UI ELEMENT CREATION FUNCTIONS                            ]]
 -- ====================================================================================
 
 --- Creates a new descriptive label.
@@ -108,6 +126,7 @@ function BlindHubsUiLibrary:AddSlider(options)
     local min = options.Min or 0
     local max = options.Max or 100
     local default = options.Default or min
+    local rounding = options.Rounding or 0 -- Added rounding option
 
     local baseColor = Color3.fromRGB(65, 65, 65)
     local sliderFrame = create("Frame", {
@@ -126,12 +145,12 @@ function BlindHubsUiLibrary:AddSlider(options)
         Rotation = 0, Parent = sliderStroke
     })
     table.insert(self.window.animatedGradients, sliderGradient)
-
+    
     local state = create("NumberValue", { Name = "State", Value = default, Parent = sliderFrame })
     
     local valueLabel = create("TextLabel", {
         Name = "ValueLabel", Position = UDim2.fromOffset(5, 5), Size = UDim2.fromOffset(40, 20), BackgroundTransparency = 1,
-        Font = Enum.Font.SourceSansBold, Text = tostring(default), TextColor3 = Color3.fromRGB(225, 225, 225), TextSize = 14,
+        Font = Enum.Font.SourceSansBold, Text = string.format("%." .. rounding .. "f", default), TextColor3 = Color3.fromRGB(225, 225, 225), TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Center, Parent = sliderFrame
     })
 
@@ -163,8 +182,8 @@ function BlindHubsUiLibrary:AddSlider(options)
             local function updateSlider(inputObject)
                 local x = math.clamp(inputObject.Position.X - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
                 local percent = x / track.AbsoluteSize.X
-                local value = math.floor((min + (max - min) * percent) + 0.5)
-                state.Value = value
+                local value = min + (max - min) * percent
+                state.Value = math.floor(value * (10^rounding) + 0.5) / (10^rounding) -- Apply rounding
             end
             updateSlider(input)
             inputChangedConnection = UserInputService.InputChanged:Connect(function(inputObject)
@@ -182,13 +201,23 @@ function BlindHubsUiLibrary:AddSlider(options)
     end)
     
     state.Changed:Connect(function(newValue)
-        valueLabel.Text = tostring(newValue)
+        valueLabel.Text = string.format("%." .. rounding .. "f", newValue)
         local percent = (newValue - min) / (max - min)
         local newPos = UDim2.new(percent, 0, 0.5, 0)
         fill:TweenSize(UDim2.new(percent, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Sine, 0.1, true)
         knob:TweenPosition(newPos, Enum.EasingDirection.Out, Enum.EasingStyle.Sine, 0.1, true)
+        if options.Callback then options.Callback(newValue) end -- Call the provided callback
     end)
 
+    -- Store in global Options table
+    BlindHubsUiLibrary.Options[options.Name or text] = {
+        Value = state.Value,
+        SetValue = function(newValue)
+            state.Value = newValue
+        end,
+        Visible = sliderFrame.Visible, -- Add visible property
+        SetVisible = function(visible) sliderFrame.Visible = visible end
+    }
     return sliderFrame
 end
 
@@ -197,11 +226,12 @@ function BlindHubsUiLibrary:AddDropdown(options)
     options = options or {}
     local text = options.Text or "Dropdown"
     local items = options.Options or {}
-    local defaultItem = items[1] or ""
+    local defaultItem = options.Default or items[1] or "" -- Use options.Default first
+    local name = options.Name or text -- Use options.Name if provided
 
     local frameBaseColor = Color3.fromRGB(45, 45, 45)
     local dropdownFrame = create("Frame", {
-        Name = text .. "_Dropdown", Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = frameBaseColor,
+        Name = name .. "_Dropdown", Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = frameBaseColor,
         Parent = self.page, ZIndex = 2
     })
     table.insert(self.window.themeableBackgrounds, {Object = dropdownFrame, BaseColor = frameBaseColor})
@@ -261,7 +291,7 @@ function BlindHubsUiLibrary:AddDropdown(options)
         BackgroundColor3 = Color3.fromRGB(45, 45, 45), BorderSizePixel = 0, Visible = false,
         Parent = dropdownButton, ZIndex = 3, ScrollBarThickness = 3
     })
-    create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = optionsList })
+    create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = optionsList})
     local listStroke = create("UIStroke", { Color = self.window.CurrentThemeColor, Thickness = 1.5, Parent = optionsList })
     table.insert(self.window.staticThemeElements, {Object = listStroke, Property = "Color"})
 
@@ -274,45 +304,64 @@ function BlindHubsUiLibrary:AddDropdown(options)
         dropdownFrame.ZIndex = isOpen and 3 or 2
     end)
     
-    for _, itemText in ipairs(items) do
-        local itemButton = create("TextButton", {
-            Name = itemText, Size = UDim2.new(1, -4, 0, 25), BackgroundTransparency = 1, Font = Enum.Font.SourceSans,
-            Text = " " .. itemText, TextColor3 = Color3.fromRGB(225, 225, 225), TextSize = 14,
-            TextXAlignment = Enum.TextXAlignment.Left, Parent = optionsList
-        })
-        itemButton.MouseEnter:Connect(function() itemButton.BackgroundTransparency = 0.5; itemButton.BackgroundColor3 = Color3.fromRGB(80,80,80) end)
-        itemButton.MouseLeave:Connect(function() itemButton.BackgroundTransparency = 1 end)
-        itemButton.MouseButton1Click:Connect(function()
-            state.Value = itemText
-            dropdownButton.Text = " " .. itemText
-            isOpen = false
-            optionsList.Visible = false
-            arrow.Text = "▼"
-            dropdownFrame.ZIndex = 2
-        end)
+    local function populateDropdown(itemsList)
+        -- Clear existing items
+        for _, child in pairs(optionsList:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        -- Add new items
+        for _, itemText in ipairs(itemsList) do
+            local itemButton = create("TextButton", {
+                Name = itemText, Size = UDim2.new(1, -4, 0, 25), BackgroundTransparency = 1, Font = Enum.Font.SourceSans,
+                Text = " " .. itemText, TextColor3 = Color3.fromRGB(225, 225, 225), TextSize = 14,
+                TextXAlignment = Enum.TextXAlignment.Left, Parent = optionsList
+            })
+            itemButton.MouseEnter:Connect(function() itemButton.BackgroundTransparency = 0.5; itemButton.BackgroundColor3 = Color3.fromRGB(80,80,80) end)
+            itemButton.MouseLeave:Connect(function() itemButton.BackgroundTransparency = 1 end)
+            itemButton.MouseButton1Click:Connect(function()
+                state.Value = itemText
+                dropdownButton.Text = " " .. itemText
+                isOpen = false
+                optionsList.Visible = false
+                arrow.Text = "▼"
+                dropdownFrame.ZIndex = 2
+                if options.Callback then options.Callback(itemText) end -- Call the provided callback
+            end)
+        end
+        local listLayout = optionsList:FindFirstChildOfClass("UIListLayout")
+        if listLayout then
+            local numItems = #itemsList
+            optionsList.CanvasSize = UDim2.fromOffset(0, (numItems * 25) + ((numItems - 1) * listLayout.Padding.Offset))
+            local listHeight = math.min(125, optionsList.CanvasSize.Y.Offset)
+            optionsList.Size = UDim2.new(1, 0, 0, listHeight)
+        end
     end
+    populateDropdown(items)
 
-    local listLayout = optionsList:FindFirstChildOfClass("UIListLayout")
-    if listLayout then
-        local numItems = #items
-        optionsList.CanvasSize = UDim2.fromOffset(0, (numItems * 25) + ((numItems - 1) * listLayout.Padding.Offset))
-        local listHeight = math.min(125, optionsList.CanvasSize.Y.Offset)
-        optionsList.Size = UDim2.new(1, 0, 0, listHeight)
-    end
-
-    if defaultItem then
-        dropdownFrame:SetAttribute("DefaultOption", defaultItem)
-    end
+    -- Store in global Options table
+    BlindHubsUiLibrary.Options[name] = {
+        Value = state.Value,
+        SetValue = function(newValue)
+            state.Value = newValue
+            dropdownButton.Text = " " .. newValue
+        end,
+        SetValues = function(newItems)
+            populateDropdown(newItems)
+        end
+    }
 
     return dropdownFrame
 end
 
 
 --- Creates a new toggle switch.
-function BlindHubsUiLibrary:AddToggle(text)
+function BlindHubsUiLibrary:AddToggle(text, options) -- Added options parameter for consistency
+    options = options or {}
+    local name = options.Name or text -- Use options.Name if provided
+
     local baseColor = Color3.fromRGB(65, 65, 65)
     local toggleFrame = create("Frame", {
-        Name = text .. "_Toggle", Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = baseColor, Parent = self.page
+        Name = name .. "_Toggle", Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = baseColor, Parent = self.page
     })
     table.insert(self.window.themeableBackgrounds, {Object = toggleFrame, BaseColor = baseColor})
 
@@ -350,7 +399,7 @@ function BlindHubsUiLibrary:AddToggle(text)
         Parent = switchKnob 
     })
 
-    local state = create("BoolValue", { Name = "State", Value = false, Parent = toggleFrame })
+    local state = create("BoolValue", { Name = "State", Value = options.Default or false, Parent = toggleFrame }) -- Use options.Default
     switchButton.MouseButton1Click:Connect(function() state.Value = not state.Value end)
     
     state.Changed:Connect(function(newValue)
@@ -367,7 +416,21 @@ function BlindHubsUiLibrary:AddToggle(text)
         end
         TweenService:Create(switchKnob, tweenInfo, knobGoal):Play()
         TweenService:Create(switchButton, tweenInfo, bgGoal):Play()
+        if options.Callback then options.Callback(newValue) end -- Call the provided callback
     end)
+    
+    -- Initial state update
+    state.Value = options.Default or false
+
+    -- Store in global Options table
+    BlindHubsUiLibrary.Options[name] = {
+        Value = state.Value,
+        SetValue = function(newValue)
+            state.Value = newValue
+        end,
+        Visible = toggleFrame.Visible, -- Add visible property
+        SetVisible = function(visible) toggleFrame.Visible = visible end
+    }
     return toggleFrame
 end
 
@@ -425,11 +488,16 @@ function BlindHubsUiLibrary:AddButton(options)
         button.TextXAlignment = Enum.TextXAlignment.Center
     end
     
+    -- Add click callback
+    if options.Callback then
+        button.MouseButton1Click:Connect(options.Callback)
+    end
+
     return button
 end
 
 -- ====================================================================================
---[[                  TAB & THEME MANAGEMENT                  ]]
+--[[                             TAB & THEME MANAGEMENT                             ]]
 -- ====================================================================================
 
 function BlindHubsUiLibrary:AddTab(tabName)
@@ -465,18 +533,20 @@ function BlindHubsUiLibrary:AddTab(tabName)
     local contentPage = create("Frame", { Name = tabName .. "_Page", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Parent = self.ContentContainer, Visible = true })
     create("UIListLayout", { Parent = contentPage, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
     local tabObject = { page = contentPage, window = self }
-    setmetatable(tabObject, BlindHubsUiLibrary)
+    setmetatable(tabObject, BlindHubsUiLibrary) -- Ensure methods like AddLabel, AddSlider, etc. are available on tabObject
 
-    self.activeTab = tabButton
     self.pages[tabButton] = tabObject.page
 
-    for button, page in pairs(self.pages) do
-        page.Visible = (button == tabButton)
-    end
-
-    local currentThemeName = self:GetThemeName()
-    if currentThemeName ~= "Black" then
-        tabButton.BackgroundColor3 = baseColor:Lerp(Themes[currentThemeName], 0.35)
+    -- Initial visibility setup (first tab added is visible)
+    if not self.activeTab then
+        self.activeTab = tabButton
+        contentPage.Visible = true
+        local currentThemeName = self:GetThemeName()
+        if currentThemeName ~= "Black" then
+            tabButton.BackgroundColor3 = baseColor:Lerp(Themes[currentThemeName], 0.35)
+        end
+    else
+        contentPage.Visible = false -- Hide subsequent tabs
     end
 
     tabButton.MouseButton1Click:Connect(function()
@@ -518,7 +588,7 @@ function BlindHubsUiLibrary:SetTheme(colorName)
     
     local outlineColor = themeColor
     if colorName == "Black" then
-        outlineColor = Themes["Purple"]
+        outlineColor = Themes["Purple"] -- Default outline color for black theme
     end
     
     self.CurrentThemeColor = outlineColor
@@ -590,7 +660,7 @@ function BlindHubsUiLibrary:ResetSettings()
 end
 
 -- ====================================================================================
---[[                BUILT-IN TAB CREATION FUNCTIONS               ]]
+--[[                             BUILT-IN TAB CREATION FUNCTIONS                            ]]
 -- ====================================================================================
 
 --- Creates the default "Main" tab with a welcome message.
@@ -657,13 +727,11 @@ function BlindHubsUiLibrary:CreateMainTab()
         TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = infoContainer
     })
 
-    local discordButton = mainTab:AddButton({Text = "Join Server Discord | Copy Link", Arrow = true}) 
-    discordButton.Size = UDim2.new(1, 0, 0, 30) 
-
-    discordButton.MouseButton1Click:Connect(function()
+    local discordButton = mainTab:AddButton({Text = "Join Server Discord | Copy Link", Arrow = true, Callback = function()
         SetClipboard("https://your.discord.link/here")
-        print("Discord link copied to clipboard!")
-    end)
+        BlindHubsUiLibrary:Notify({ Title = "Discord", Content = "Discord link copied to clipboard!", Type = "success" })
+    end}) 
+    discordButton.Size = UDim2.new(1, 0, 0, 30) 
 
     return mainTab
 end
@@ -677,38 +745,44 @@ function BlindHubsUiLibrary:CreateSettingsTab()
     table.sort(themeNames)
 
     local themeDropdown = settingsTab:AddDropdown({
+        Name = "ThemeDropdown", -- Added Name for Options table access
         Text = "Select Theme",
-        Options = themeNames
+        Options = themeNames,
+        Default = self.CurrentThemeName, -- Set default to current theme
+        Callback = function(newValue)
+            self:SetTheme(newValue)
+        end
     })
-    themeDropdown.State.Changed:Connect(function(newValue)
-        self:SetTheme(newValue)
-    end)
-
+    
     settingsTab:AddLabel("Visual Settings")
 
     local transparencySlider = settingsTab:AddSlider({
+        Name = "TransparencySlider", -- Added Name for Options table access
         Text = "UI Transparency",
-        Min = 0, Max = 100, Default = 69 
+        Min = 0, Max = 100, Default = 69,
+        Callback = function(newValue)
+            self:SetTransparency(newValue)
+        end
     })
-    transparencySlider.State.Changed:Connect(function(newValue)
-        self:SetTransparency(newValue)
-    end)
 
-    local opacityToggle = settingsTab:AddToggle("Opaque UI")
-    opacityToggle.State.Changed:Connect(function(newValue)
-        self.isOpaque = newValue
-        self:UpdateVisuals()
-    end)
+    local opacityToggle = settingsTab:AddToggle("Opaque UI", {
+        Name = "OpacityToggle", -- Added Name for Options table access
+        Default = self.isOpaque, -- Set default to current state
+        Callback = function(newValue)
+            self.isOpaque = newValue
+            self:UpdateVisuals()
+        end
+    })
 
+    -- Store references for ResetSettings
     self.themeDropdown = themeDropdown
     self.opacityToggle = opacityToggle
     self.transparencySlider = transparencySlider
 
-    local resetButton = settingsTab:AddButton({Text = "Reset Settings", Arrow = true})
-    resetButton.MouseButton1Click:Connect(function()
+    local resetButton = settingsTab:AddButton({Text = "Reset Settings", Arrow = true, Callback = function()
         self:ResetSettings()
-        print("Settings have been reset.")
-    end)
+        BlindHubsUiLibrary:Notify({ Title = "Settings", Content = "Settings have been reset.", Type = "success" })
+    end})
 
     return settingsTab
 end
@@ -718,31 +792,36 @@ function BlindHubsUiLibrary:CreateCheatsTab()
     local cheatsTab = self:AddTab("Cheats")
 
     cheatsTab:AddLabel("Player Cheats")
-    cheatsTab:AddToggle("Player ESP")
+    cheatsTab:AddToggle("Player ESP", {Name = "PlayerESP"}) -- Added Name
     cheatsTab:AddButton({Text = "Kill Aura", Arrow = true})
     cheatsTab:AddDropdown({
+        Name = "TargetPriority", -- Added Name
         Text = "Target Priority",
         Options = {"Closest", "Richest", "Random"}
     })
 
     cheatsTab:AddLabel("Movement Cheats")
-    local walkspeedToggle = cheatsTab:AddToggle("Modify Walkspeed")
+    local walkspeedToggle = cheatsTab:AddToggle("Modify Walkspeed", {Name = "ModifyWalkspeed"}) -- Added Name
     local walkspeedSlider = cheatsTab:AddSlider({
+        Name = "WalkspeedValue", -- Added Name
         Text = "Walkspeed", Min = 16, Max = 200, Default = 50
     })
-    walkspeedSlider.Visible = false
+    -- Initially hide the slider if the toggle is off
+    walkspeedSlider.Visible = BlindHubsUiLibrary.Options.ModifyWalkspeed.Value
+    
     walkspeedToggle.State.Changed:Connect(function(newValue)
         walkspeedSlider.Visible = newValue
+        BlindHubsUiLibrary.Options.WalkspeedValue.SetVisible(newValue) -- Update visibility via Options
     end)
     
-    self.walkspeedToggle = walkspeedToggle
+    self.walkspeedToggle = walkspeedToggle -- Reference for ResetSettings
 
     return cheatsTab
 end
 
 
 -- ====================================================================================
---[[                  WINDOW CREATION                   ]]
+--[[                             WINDOW CREATION                             ]]
 -- ====================================================================================
 
 function BlindHubsUiLibrary.CreateWindow(options)
@@ -992,7 +1071,7 @@ function BlindHubsUiLibrary.CreateWindow(options)
     end)
     window.ScreenGui.Destroying:Connect(function() for _, c in pairs(connections) do c:Disconnect() end end)
     
-    window:SetTheme("Black")
+    window:SetTheme("Purple") -- Set initial theme to Purple
     
     local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
     window.ScreenGui.Parent = PlayerGui
@@ -1002,7 +1081,7 @@ end
 --- Creates the entire default UI window with all pre-made tabs.
 function BlindHubsUiLibrary.CreateDefaultWindow()
     local uiName = "| BlindHub |"
-    local discordLink = ":https://discord.gg/YourDiscord"
+    local discordLink = ":https://discord.gg/YourDiscord" -- Placeholder, update in main script if needed
 
     local Window = BlindHubsUiLibrary.CreateWindow({
         Title = uiName .. " " .. discordLink
@@ -1016,12 +1095,12 @@ function BlindHubsUiLibrary.CreateDefaultWindow()
 end
 
 -- ====================================================================================
---[[                  KEY SYSTEM                  ]]
+--[[                             KEY SYSTEM                             ]]
 -- ====================================================================================
 
 --- Creates the Key System UI and handles validation.
 function BlindHubsUiLibrary.CreateKeySystem(onSuccess)
-    local validKeys = {"test"}
+    local validKeys = {"test"} -- Your valid keys
     local keyLinks = {
         Linkvertise = "https://your.linkvertise.link/here",
         Luarmor = "https://your.luarmor.link/here"
@@ -1168,7 +1247,7 @@ function BlindHubsUiLibrary.CreateKeySystem(onSuccess)
     local keyOptions = create("Frame", {
         Name = "KeyOptions",
         Size = UDim2.new(1, 0, 0, 60),
-        Position = UDim2.new(0, 0, 0, -5),         
+        Position = UDim2.new(0, 0, 0, -5),          
         AnchorPoint = Vector2.new(0, 1),           
         BackgroundColor3 = Color3.fromRGB(45, 45, 45),
         Visible = false,
@@ -1311,7 +1390,7 @@ end
 
 
 -- ====================================================================================
---[[                  INITIALIZATION                  ]]
+--[[                             INITIALIZATION                             ]]
 -- ====================================================================================
 
 --- Initializes the entire UI, starting with the key system.
@@ -1324,4 +1403,9 @@ function BlindHubsUiLibrary.Init()
 end
 
 -- To start the entire UI (Key System -> Main Window), just call this function.
+-- This line is for testing the library in isolation. In the main script,
+-- it will be called after loading.
 -- BlindHubsUiLibrary.Init()
+
+-- Return the main library table for external loading
+return BlindHubsUiLibrary
